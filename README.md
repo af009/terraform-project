@@ -15,7 +15,7 @@
 ## 2- Create azure account
 ## 3- Install the Azure CLI and authenticate with Azure with the following command:
 #     `az login`
-## 4- Clone the project: (https://gitlab.com/af009/bootcamp-terraform.git)
+## 4- Clone the project: (https://github.com/af009/terraform-project)
 ## 5- Create a file called terraform.tfvars in the root folder
 ```
 admin_username = "your username"
