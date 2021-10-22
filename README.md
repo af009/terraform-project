@@ -6,7 +6,7 @@
 ![](diagram.png)
 
 ### Resources used
-![](resources.png)
+![](resources.jpg)
 
 ## How to use?
 
