@@ -11,9 +11,9 @@ variable "admin_password" {
 variable "PGUSERNAME" {
   type = string
 }
-variable  "PGDATABASE" {
+variable "PGDATABASE" {
   type = string
 }
-variable "PGPASSWORD"{
+variable "PGPASSWORD" {
   type = string
 }

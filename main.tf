@@ -38,95 +38,6 @@ resource "azurerm_public_ip" "public_ip_lb" {
   allocation_method   = "Static"
   sku                 = "Standard"
 }
-# Create network interface vm1
-resource "azurerm_network_interface" "nic-vm1" {
-  name                = "nic-vim1"
-  location            = azurerm_resource_group.rg-terraform-app.location
-  resource_group_name = azurerm_resource_group.rg-terraform-app.name
-
-  ip_configuration {
-    name                          = "testconfiguration1"
-    subnet_id                     = azurerm_subnet.app-subnet.id
-    private_ip_address_allocation = "Dynamic"
-    #public_ip_address_id = azurerm_public_ip.public_ip_lb.id
-  }
-}
-# Create network interface vm2
-resource "azurerm_network_interface" "nic-vm2" {
-  name                = "nic-vm2"
-  location            = azurerm_resource_group.rg-terraform-app.location
-  resource_group_name = azurerm_resource_group.rg-terraform-app.name
-
-  ip_configuration {
-    name                          = "testconfiguration1"
-    subnet_id                     = azurerm_subnet.app-subnet.id
-    private_ip_address_allocation = "Dynamic"
-  }
-}
-# Create Virtual Machine (VM1)
-resource "azurerm_linux_virtual_machine" "vms-1" {
-  name                            = "vm-1"
-  resource_group_name             = azurerm_resource_group.rg-terraform-app.name
-  location                        = var.location
-  size                            = "Standard_B1ms"
-  admin_username                  = var.admin_username
-  admin_password                  = var.admin_password
-  disable_password_authentication = false
-  zone                            = "1"
-  network_interface_ids = [
-    azurerm_network_interface.nic-vm1.id
-  ]
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
-    version   = "latest"
-  }
-
-
-}
-# Create Virtual Machine (VM2)
-resource "azurerm_linux_virtual_machine" "vm-2" {
-  name                            = "vm-2"
-  resource_group_name             = azurerm_resource_group.rg-terraform-app.name
-  location                        = var.location
-  size                            = "Standard_B1ms"
-  admin_username                  = var.admin_username
-  admin_password                  = var.admin_password
-  disable_password_authentication = false
-  zone                            = "2"
-
-  network_interface_ids = [
-    azurerm_network_interface.nic-vm2.id
-  ]
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
-    version   = "latest"
-  }
-}
-
-# NIC & NSG (association) - vm1
-resource "azurerm_network_interface_security_group_association" "nsg-nic-vm1" {
-  network_interface_id      = azurerm_network_interface.nic-vm1.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
-}
-# NIC & NSG (association) - vm2
-resource "azurerm_network_interface_security_group_association" "nsg-nic-vm2" {
-  network_interface_id      = azurerm_network_interface.nic-vm2.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
-}
 
 # Getting my own IP for ssh connection
 data "http" "myip" {
@@ -152,14 +63,14 @@ resource "azurerm_network_security_group" "nsg" {
 
   }
   security_rule {
-    access                     = "Allow"
-    direction                  = "Inbound"
-    name                       = "Port-8080"
-    priority                   = 100
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "8080"
-    source_address_prefix      = "*"
+    access                 = "Allow"
+    direction              = "Inbound"
+    name                   = "Port-8080"
+    priority               = 100
+    protocol               = "Tcp"
+    source_port_range      = "*"
+    destination_port_range = "8080"
+    source_address_prefix  = "*"
     #destination_address_prefix = "${chomp(azurerm_public_ip.public_ip_lb.ip_address)}/32"
     destination_address_prefix = "*"
   }
@@ -198,19 +109,6 @@ resource "azurerm_subnet_nat_gateway_association" "subnet_nat_association" {
   nat_gateway_id = azurerm_nat_gateway.nat_gatewey.id
   subnet_id      = azurerm_subnet.app-subnet.id
 }
-# NIC VM1 & Nat rule association
-resource "azurerm_network_interface_nat_rule_association" "nic_natrule_association-vm1" {
-  ip_configuration_name = azurerm_network_interface.nic-vm1.ip_configuration[0].name
-  nat_rule_id           = azurerm_lb_nat_rule.nat_rule1.id
-  network_interface_id  = azurerm_network_interface.nic-vm1.id
-
-}
-# NIC VM2 & Nat rule association
-resource "azurerm_network_interface_nat_rule_association" "nic_natrule_association-vm2" {
-  ip_configuration_name = azurerm_network_interface.nic-vm2.ip_configuration[0].name
-  nat_rule_id           = azurerm_lb_nat_rule.nat_rule2.id
-  network_interface_id  = azurerm_network_interface.nic-vm2.id
-}
 
 # Create a load balancer
 resource "azurerm_lb" "load-balancer" {
@@ -234,25 +132,14 @@ resource "azurerm_lb_probe" "health-probe" {
   protocol            = "HTTP"
   port                = 8080
   resource_group_name = azurerm_resource_group.rg-terraform-app.name
-  request_path = "/"
+  request_path        = "/"
 }
 # Backend Pool
 resource "azurerm_lb_backend_address_pool" "backend_pool" {
   loadbalancer_id = azurerm_lb.load-balancer.id
   name            = "backend_pool"
 }
-# Backend Pool and NIC vm1 - association
-resource "azurerm_network_interface_backend_address_pool_association" "backend_pool_association-vm1" {
-  backend_address_pool_id = azurerm_lb_backend_address_pool.backend_pool.id
-  ip_configuration_name   = azurerm_network_interface.nic-vm1.ip_configuration[0].name
-  network_interface_id    = azurerm_network_interface.nic-vm1.id
-}
-# Backend Pool and NIC vm2 - association
-resource "azurerm_network_interface_backend_address_pool_association" "backend_pool_association-vm2" {
-  backend_address_pool_id = azurerm_lb_backend_address_pool.backend_pool.id
-  ip_configuration_name   = azurerm_network_interface.nic-vm2.ip_configuration[0].name
-  network_interface_id    = azurerm_network_interface.nic-vm2.id
-}
+
 # Create Load Balancer Rule
 resource "azurerm_lb_rule" "lb_rule" {
   backend_port                   = 8080
@@ -293,12 +180,69 @@ resource "azurerm_lb_nat_rule" "nat_rule2" {
   enable_tcp_reset               = true
 }
 
+resource "azurerm_lb_nat_rule" "nat_rule3" {
+  backend_port                   = 22
+  frontend_ip_configuration_name = azurerm_lb.load-balancer.frontend_ip_configuration[0].name
+  frontend_port                  = 223
+  loadbalancer_id                = azurerm_lb.load-balancer.id
+  name                           = "nat_rule3"
+  protocol                       = "tcp"
+  resource_group_name            = azurerm_resource_group.rg-terraform-app.name
+  enable_floating_ip             = false
+  enable_tcp_reset               = true
+}
+
+module "vms-1" {
+  source                    = "./modules/vms"
+  admin_password            = var.admin_password
+  admin_username            = var.admin_username
+  backend_address_pool_id   = azurerm_lb_backend_address_pool.backend_pool.id
+  nat_rule_id               = azurerm_lb_nat_rule.nat_rule1.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+  nic_name                  = "nic-vm1"
+  public_ip_address_id      = azurerm_public_ip.public_ip_lb.id
+  resource_group_name       = azurerm_resource_group.rg-terraform-app.name
+  subnet_id                 = azurerm_subnet.app-subnet.id
+  vm_name                   = "vm1"
+  vm_zone                   = "1"
+}
+
+module "vms-2" {
+  source                    = "./modules/vms"
+  admin_password            = var.admin_password
+  admin_username            = var.admin_username
+  backend_address_pool_id   = azurerm_lb_backend_address_pool.backend_pool.id
+  nat_rule_id               = azurerm_lb_nat_rule.nat_rule2.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+  nic_name                  = "nic-vm2"
+  public_ip_address_id      = azurerm_public_ip.public_ip_lb.id
+  resource_group_name       = azurerm_resource_group.rg-terraform-app.name
+  subnet_id                 = azurerm_subnet.app-subnet.id
+  vm_name                   = "vm2"
+  vm_zone                   = "2"
+}
+
+module "vms-3" {
+  source                    = "./modules/vms"
+  admin_password            = var.admin_password
+  admin_username            = var.admin_username
+  backend_address_pool_id   = azurerm_lb_backend_address_pool.backend_pool.id
+  nat_rule_id               = azurerm_lb_nat_rule.nat_rule3.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+  nic_name                  = "nic-vm3"
+  public_ip_address_id      = azurerm_public_ip.public_ip_lb.id
+  resource_group_name       = azurerm_resource_group.rg-terraform-app.name
+  subnet_id                 = azurerm_subnet.app-subnet.id
+  vm_name                   = "vm3"
+  vm_zone                   = "3"
+}
+
 module "postgresql" {
-  source = "./modules/postgresql"
-  local_ip = chomp(data.http.myip.body)
-  PGUSERNAME = var.PGUSERNAME
-  PGPASSWORD = var.PGPASSWORD
-  location = var.location
-  public_ip = azurerm_public_ip.public_ip_lb.ip_address
+  source              = "./modules/postgresql"
+  local_ip            = chomp(data.http.myip.body)
+  PGUSERNAME          = var.PGUSERNAME
+  PGPASSWORD          = var.PGPASSWORD
+  location            = var.location
+  public_ip           = azurerm_public_ip.public_ip_lb.ip_address
   resource_group_name = azurerm_resource_group.rg-terraform-app.name
 }
